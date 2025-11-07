@@ -1,0 +1,7 @@
+fastapi==0.121.0
+uvicorn[standard]==0.23.2
+transformers==4.38.2
+torch --index-url https://download.pytorch.org/whl/cpu
+nltk==3.9.1
+youtube-transcript-api==0.6.2
+pytube==15.0.0

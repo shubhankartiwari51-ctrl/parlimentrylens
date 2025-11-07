@@ -1,0 +1,42 @@
+version: "3.9"
+
+services:
+  web:
+    build: ./apps/web
+    ports: ["5173:5173"]
+    environment:
+      - VITE_API_BASE=http://localhost:8000
+      - VITE_AI_BASE=http://localhost:8001
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+    command: sh -c "npm install && npm run dev -- --host"
+    depends_on:
+      - api
+      - ai
+
+  api:
+    build: ./apps/api
+    ports: ["8000:8000"]
+    env_file:
+      - ./apps/api/.env
+    volumes:
+      - ./apps/api:/app
+      - /app/node_modules
+    command: sh -c "npm install && npx tsx watch src/index.ts"
+    depends_on:
+      - redis
+
+  ai:
+    build: ./apps/ai
+    ports: ["8001:8001"]
+    env_file:
+      - ./apps/ai/.env.example
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]
+
+  redis:
+    image: redis:7
+    ports: ["6379:6379"]
+
+volumes:
+  mongo_data:

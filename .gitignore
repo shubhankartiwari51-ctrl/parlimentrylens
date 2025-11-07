@@ -1,0 +1,18 @@
+
+# Node
+node_modules
+dist
+.pnpm-store
+# Python
+.venv
+__pycache__/
+# OS
+.DS_Store
+Thumbs.db
+# Env
+.env
+.env.*
+# Logs
+*.log
+# Build
+build
