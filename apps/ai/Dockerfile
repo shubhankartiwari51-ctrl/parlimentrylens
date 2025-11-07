@@ -1,20 +1,24 @@
+# Use an official Python image
 FROM python:3.11-slim
 
-WORKDIR /app
+# Set the working directory in the container
+WORKDIR /code
 
-# Avoid interactive prompts
-ENV DEBIAN_FRONTEND=noninteractive
+# --- This is the fix for Tesseract ---
+# Install the Tesseract "scan engine" and the Hindi language pack
+# Add 'tesseract-ocr-mar' for Marathi, etc.
+RUN apt-get update && apt-get install -y \
+    tesseract-ocr \
+    tesseract-ocr-hin \
+    --no-install-recommends
 
-# Install build tools for torch & transformers
-RUN apt-get update && apt-get install -y gcc g++ wget && rm -rf /var/lib/apt/lists/*
+# Copy and install Python requirements
+COPY ./requirements.txt /code/requirements.txt
+RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
-# Copy and install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir --timeout=300 --retries=5 -r requirements.txt
+# Copy all your app code into the container
+COPY . /code/
 
-# Copy FastAPI app
-COPY app ./app
-
-EXPOSE 8001
-
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]
+# Tell the container what command to run on startup
+# We use 0.0.0.0 (all IPs) and Render's $PORT variable
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "10000"]
