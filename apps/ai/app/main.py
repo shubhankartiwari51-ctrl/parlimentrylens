@@ -25,10 +25,11 @@ app.add_middleware(
     allow_headers=["*"],   # Allow all headers
 )
 
-# ✅ Include routers (with prefixes to avoid clashes)
 app.include_router(text_routes.router, prefix="/text", tags=["Text Analysis"])
 app.include_router(youtube_routes.router, prefix="/youtube", tags=["YouTube Analysis"])
 app.include_router(newspaper_routes.router, prefix="/newspaper", tags=["Newspaper Analysis"])
+
+print("✅ All routers loaded successfully")
 
 @app.get("/")
 def read_root():
