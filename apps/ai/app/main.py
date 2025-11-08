@@ -12,11 +12,10 @@ app = FastAPI(title="ParliamentLens AI API")
 
 # ✅ Updated CORS configuration
 origins = [
-    "http://localhost:5173",                # Local Vite dev
-    "http://127.0.0.1:5173",                # Local fallback
-    "http://localhost:3000",                # In case of CRA
-    "https://parliamentylens.vercel.app",   # Your frontend on Vercel
-    "https://parliamentylens.onrender.com"  # Your backend domain
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://parlimentrylens.vercel.app",   # ✅ your actual live frontend
+    "https://parliamentylens.onrender.com"
 ]
 
 app.add_middleware(
