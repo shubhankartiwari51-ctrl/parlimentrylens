@@ -1,4 +1,6 @@
 # C:\Users\prabh\Downloads\ParliamentLens\apps\ai\app\main.py
+import os, sys
+sys.path.append(os.path.dirname(__file__))
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
