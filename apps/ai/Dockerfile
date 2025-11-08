@@ -1,19 +1,24 @@
+# Use an official Python image
 FROM python:3.11-slim
 
-WORKDIR /app
+# Set the working directory in the container
+WORKDIR /code
 
-# Avoid interactive prompts
-ENV DEBIAN_FRONTEND=noninteractive
+# --- This is the FIX ---
+# Install Tesseract (with Hindi) and FFmpeg (for audio)
+RUN apt-get update && apt-get install -y \
+    tesseract-ocr \
+    tesseract-ocr-hin \
+    ffmpeg \
+    --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
-# Install build tools + Tesseract OCR
-RUN apt-get update && apt-get install -y gcc g++ wget tesseract-ocr && rm -rf /var/lib/apt/lists/*
-
-# Copy and install Python dependencies
+# Copy and install our NEW, SMALL requirements
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade -r requirements.txt
 
-# Copy FastAPI app
-COPY app ./app
+# Copy all your app code into the container
+COPY ./app ./app
 
-EXPOSE 8001
+# --- This is the FIX for the port ---
+# Use the "shell" form to read the $PORT variable
 CMD uvicorn app.main:app --host 0.0.0.0 --port $PORT

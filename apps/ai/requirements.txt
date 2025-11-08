@@ -1,18 +1,17 @@
 # C:\Users\prabh\Downloads\ParliamentLens\apps\ai\requirements.txt
-# (This is the corrected file)
-
---find-links https://download.pytorch.org/whl/torch_stable.html
-torch --extra-index-url https://download.pytorch.org/whl/cpu
+# (This is the NEW, lightweight file)
 
 fastapi==0.121.0
 uvicorn[standard]==0.23.2
-transformers==4.38.2
-nltk==3.9.1
-youtube-transcript-api==0.6.2
-pytube==15.0.0
 requests
-yt-dlp
-curl_cffi
+python-multipart
 pytesseract
 pillow
-python-multipart
+
+# For YouTube
+youtube-transcript-api==0.6.2
+yt-dlp
+curl_cffi
+
+# For Video/Audio files
+moviepy

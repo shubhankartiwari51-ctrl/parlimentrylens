@@ -1,6 +1,4 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File
-import pytesseract
-from PIL import Image, ImageEnhance, ImageFilter
 import io
 
 # --- Import our NEW API-only functions ---
@@ -8,34 +6,29 @@ try:
     from ..utils import (
         get_sentiment_from_api,
         get_summary_from_api,
-        get_topics_from_api
+        get_topics_from_api,
+        get_transcription_from_api # <-- Import our audio function
     )
 except ImportError:
      from utils import (
         get_sentiment_from_api,
         get_summary_from_api,
-        get_topics_from_api
+        get_topics_from_api,
+        get_transcription_from_api # <-- Import our audio function
     )
 
-router = APIRouter(prefix="/newspaper", tags=["Newspaper Analysis"])
-# We comment this out so it works on Render (Linux)
-# pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+router = APIRouter(prefix="/video", tags=["Video/Audio File Analysis"])
 
 @router.post("/analyze")
-async def analyze_newspaper(file: UploadFile = File(...)):
+async def analyze_video_file(file: UploadFile = File(...)):
     try:
-        image_data = await file.read()
-        image = Image.open(io.BytesIO(image_data))
+        file_data = await file.read()
         
-        img_gray = image.convert('L')
-        enhancer = ImageEnhance.Contrast(img_gray)
-        img_enhanced = enhancer.enhance(2.0)
-        img_final = img_enhanced.filter(ImageFilter.SHARPEN)
-        
-        content = pytesseract.image_to_string(img_final, lang='eng+hin')
+        # --- Call API to get text ---
+        content = get_transcription_from_api(file_data)
         if not content:
-            raise HTTPException(status_code=400, detail="Could not extract any text from the image.")
-
+            raise HTTPException(status_code=400, detail="Could not extract any speech from the file.")
+        
         # --- Call APIs for all 3 tasks ---
         final_sentiment = get_sentiment_from_api(content)
         final_summary_text = get_summary_from_api(content)

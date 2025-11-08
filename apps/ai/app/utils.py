@@ -1,112 +1,90 @@
 # C:\Users\prabh\Downloads\ParliamentLens\apps\ai\app\utils.py
-# (This is a NEW file)
+# (This is the NEW "API-only" file)
 
-from transformers import pipeline, AutoTokenizer
-import math
-import requests  # <-- New library
-import os       # <-- New library
+import requests
+import os
+import time
 
-# --- Load only the models that fit in memory ---
-try:
-    # 1. Sentiment (fast)
-    sentiment_analyzer = pipeline("sentiment-analysis")
-    
-    # 2. Summarizer (fast)
-    SUMMARIZER_MODEL = "sshleifer/distilbart-cnn-6-6"
-    summarizer = pipeline("summarization", model=SUMMARIZER_MODEL)
-
-    # 4. Tokenizer for chunking (matches summarizer)
-    summarizer_tokenizer = AutoTokenizer.from_pretrained(SUMMARIZER_MODEL)
-    MODEL_MAX_LENGTH = summarizer.model.config.max_position_embeddings # 1024
-    
-    # --- 3. REMOVED the "topic_model" ---
-    # We will call the API for this instead to save memory.
-    
-except Exception as e:
-    raise RuntimeError(f"Model loading failed: {e}")
-
-# --- NEW: Hugging Face API setup ---
-HF_TOKEN = os.environ.get("HF_TOKEN") # Reads the secret from Render
-TOPIC_API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-mnli"
+# --- Hugging Face API setup ---
+# We will get this from the Render secrets
+HF_TOKEN = os.environ.get("HF_TOKEN") 
 headers = {"Authorization": f"Bearer {HF_TOKEN}"}
 
+# Define all the free API "phone numbers"
+API_URLS = {
+    "topics": "https://api-inference.huggingface.co/models/facebook/bart-large-mnli",
+    "summary": "https://api-inference.huggingface.co/models/sshleifer/distilbart-cnn-6-6",
+    "sentiment": "https://api-inference.huggingface.co/models/distilbert/distilbert-base-uncased-finetuned-sst-2-english",
+    "audio": "https://api-inference.huggingface.co/models/openai/whisper-large-v3"
+}
 
-# --- NEW API Helper Function ---
-def get_topics_from_api(text: str, labels: list) -> list:
+def make_api_call(api_url, data, is_json=True):
     """
-    Offloads the "Key Topics" task to the free Hugging Face API.
-    This saves a huge amount of memory.
+    Handles all API calls, including the 503 "model loading" error.
     """
     if not HF_TOKEN:
-        print("WARNING: HF_TOKEN not set. Skipping topic analysis.")
-        return []
-        
+        print("WARNING: HF_TOKEN not set. Skipping API call.")
+        return None
+
     try:
-        response = requests.post(
-            TOPIC_API_URL, 
-            headers=headers, 
-            json={
-                "inputs": text,
-                "parameters": {"candidate_labels": labels, "multi_label": True}
-            }
-        )
+        # Send the request
+        if is_json:
+            response = requests.post(api_url, headers=headers, json=data)
+        else:
+            response = requests.post(api_url, headers=headers, data=data) # For audio/image files
+
+        # If model is loading, wait 15s and try again
+        if response.status_code == 503:
+            print(f"Model {api_url} is loading, waiting 15 seconds...")
+            time.sleep(15) 
+            response = requests.post(api_url, headers=headers, json=data if is_json else data)
+
         if response.status_code != 200:
-            # If the API is busy (503 error), it's not a crash. Just return empty.
-            print(f"HF API Error: {response.status_code} - {response.text}")
-            return [] # Return empty on error
+            print(f"API Error ({api_url}): {response.status_code} - {response.text}")
+            return None
         
-        data = response.json()
-        if not isinstance(data, dict) or "labels" not in data:
-             print(f"HF API returned invalid data: {data}")
-             return []
-             
+        return response.json()
+
+    except Exception as e:
+        print(f"API Request failed ({api_url}): {e}")
+        return None
+
+# --- NEW API Helper Functions ---
+
+def get_transcription_from_api(file_data: bytes) -> str:
+    print("Calling ASR (Whisper) API...")
+    data = make_api_call(API_URLS["audio"], data=file_data, is_json=False)
+    if data and "text" in data:
+        return data["text"]
+    return ""
+
+def get_sentiment_from_api(text: str) -> dict:
+    print("Calling Sentiment API...")
+    # Cut the text to 512 tokens for this model
+    data = make_api_call(API_URLS["sentiment"], data={"inputs": text[:512]})
+    if data and isinstance(data, list) and data[0]:
+        label = data[0].get("label", "NEUTRAL").upper()
+        if label not in {"POSITIVE", "NEGATIVE", "NEUTRAL"}:
+             label = {"LABEL_0": "NEGATIVE", "LABEL_1": "POSITIVE"}.get(label, "NEUTRAL")
+        return {"label": label, "score": data[0].get("score", 0.0)}
+    return {"label": "NEUTRAL", "score": 0.0}
+
+def get_summary_from_api(text: str) -> str:
+    print("Calling Summary API...")
+    data = make_api_call(API_URLS["summary"], data={"inputs": text})
+    if data and isinstance(data, list) and data[0] and "summary_text" in data[0]:
+        return data[0]["summary_text"]
+    return "Summary API failed or text was too short."
+
+def get_topics_from_api(text: str, labels: list) -> list:
+    print("Calling Topics API...")
+    payload = {"inputs": text, "parameters": {"candidate_labels": labels, "multi_label": True}}
+    data = make_api_call(API_URLS["topics"], data=payload)
+    if data and "labels" in data:
         topics = [
             {"label": label, "score": score}
             for label, score in zip(data["labels"], data["scores"])
-            if score > 0.5 # Only show topics with > 50% confidence
+            if score > 0.5
         ]
         return sorted(topics, key=lambda x: x["score"], reverse=True)
-    except Exception as e:
-        print(f"HF API Request failed: {e}")
-        return []
-
-# --- "Strong Sentiment" Helper (Unchanged) ---
-def calculate_average_sentiment(sentiments: list) -> dict:
-    if not sentiments:
-        return {"label": "NEUTRAL", "score": 0.0}
-    total_score = 0
-    for sent in sentiments:
-        score = sent["score"]
-        if sent["label"] == "NEGATIVE":
-            score = -score
-        total_score += score
-    avg_score = total_score / len(sentiments)
-    final_label = "NEUTRAL"
-    if avg_score > 0.15:
-        final_label = "POSITIVE"
-    elif avg_score < -0.15:
-        final_label = "NEGATIVE"
-    return {"label": final_label, "score": abs(avg_score)}
-
-# --- "Recursive Summarizer" Helper (Unchanged) ---
-def chunk_and_summarize(text_to_summarize: str, max_length: int, min_length: int) -> str:
-    try:
-        tokens = summarizer_tokenizer.encode(text_to_summarize, add_special_tokens=False)
-        chunk_size = MODEL_MAX_LENGTH - 50 
-        chunks = [
-            tokens[i : i + chunk_size]
-            for i in range(0, len(tokens), chunk_size)
-        ]
-        text_chunks = [
-            summarizer_tokenizer.decode(chunk, skip_special_tokens=True)
-            for chunk in chunks
-        ]
-        if not text_chunks:
-            return ""
-        summaries = summarizer(
-            text_chunks, max_length=max_length, min_length=min_length, do_sample=False
-        )
-        return " ".join([s["summary_text"] for s in summaries])
-    except Exception as e:
-        print(f"Error during chunking/summarizing: {e}")
-        return ""
+    return []
