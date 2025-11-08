@@ -31,7 +31,7 @@ except ImportError:
 router = APIRouter(prefix="/newspaper", tags=["Newspaper Analysis"])
 
 # This tells Python the exact path to your Tesseract program
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+# pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 
 @router.post("/analyze")
