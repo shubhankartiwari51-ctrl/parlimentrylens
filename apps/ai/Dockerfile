@@ -1,21 +1,20 @@
-# Use an official Python image
 FROM python:3.11-slim
 
-# Set the working directory
-WORKDIR /code
+WORKDIR /app
 
-# ✅ Install Tesseract and Hindi pack (add others if needed)
-RUN apt-get update && apt-get install -y \
-    tesseract-ocr \
-    tesseract-ocr-hin \
-    --no-install-recommends
+# Avoid interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Install dependencies
-COPY ./requirements.txt /code/requirements.txt
-RUN pip install --no-cache-dir -r /code/requirements.txt
+# Install build tools + Tesseract OCR
+RUN apt-get update && apt-get install -y gcc g++ wget tesseract-ocr && rm -rf /var/lib/apt/lists/*
 
-# Copy app code
-COPY . /code/
+# Copy and install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# ✅ Start the FastAPI server
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "$PORT"]
+# Copy FastAPI app
+COPY app ./app
+
+EXPOSE 8001
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]
