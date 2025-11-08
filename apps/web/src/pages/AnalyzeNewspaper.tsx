@@ -128,7 +128,7 @@ export default function AnalyzeNewspaper() {
     formData.append("file", file);
 
     try {
-      const res = await fetch("http://127.0.0.1:8001/newspaper/analyze", {
+      const res = await fetch(`${import.meta.env.VITE_AI_BASE}/newspaper/analyze`, {
         method: "POST",
         // DO NOT set Content-Type header, browser does it
         body: formData,

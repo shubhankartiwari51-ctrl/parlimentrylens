@@ -146,7 +146,7 @@ export default function AnalyzeYouTube() {
     setResult(null);
     setError(null);
     try {
-      const res = await fetch("http://127.0.0.1:8001/youtube/analyze", {
+      const res = await fetch(`${import.meta.env.VITE_AI_BASE}/youtube/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
