@@ -2,21 +2,17 @@ from fastapi import APIRouter, HTTPException, UploadFile, File
 import io
 
 # --- Import our NEW API-only functions ---
-try:
-    from ..utils import (
-        get_sentiment_from_api,
-        get_summary_from_api,
-        get_topics_from_api,
-        get_transcription_from_api # <-- Import our audio function
-    )
-except ImportError:
-     from utils import (
-        get_sentiment_from_api,
-        get_summary_from_api,
-        get_topics_from_api,
-        get_transcription_from_api # <-- Import our audio function
-    )
-
+# --- Import all helpers from utils.py ---
+from utils import (
+    sentiment_analyzer,
+    summarizer,
+    summarizer_tokenizer,
+    MODEL_MAX_LENGTH,
+    calculate_average_sentiment,
+    chunk_and_summarize,
+    get_topics_from_api,
+    get_transcription_from_api # (This line is only needed in video_routes.py)
+)
 router = APIRouter(prefix="/video", tags=["Video/Audio File Analysis"])
 
 @router.post("/analyze")

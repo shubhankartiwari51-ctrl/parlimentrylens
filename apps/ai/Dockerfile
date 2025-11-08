@@ -17,7 +17,9 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade -r requirements.txt
 
 # Copy all your app code into the container
+# Copy FastAPI app
 COPY ./app ./app
+COPY ./utils.py .
 
 # --- This is the FIX for the port ---
 # Use the "shell" form to read the $PORT variable

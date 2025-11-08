@@ -7,26 +7,17 @@ from PIL import Image, ImageEnhance, ImageFilter # <-- Import more image tools
 import io
 
 # --- FIX: Import models and helpers from the new utils.py file ---
-try:
-    from ..utils import (
-        sentiment_analyzer,
-        summarizer,
-        summarizer_tokenizer,
-        MODEL_MAX_LENGTH,
-        calculate_average_sentiment,
-        chunk_and_summarize,
-        get_topics_from_api  # <-- Import the new API function
-    )
-except ImportError:
-     from utils import (
-        sentiment_analyzer,
-        summarizer,
-        summarizer_tokenizer,
-        MODEL_MAX_LENGTH,
-        calculate_average_sentiment,
-        chunk_and_summarize,
-        get_topics_from_api  # <-- Import the new API function
-    )
+# --- Import all helpers from utils.py ---
+from utils import (
+    sentiment_analyzer,
+    summarizer,
+    summarizer_tokenizer,
+    MODEL_MAX_LENGTH,
+    calculate_average_sentiment,
+    chunk_and_summarize,
+    get_topics_from_api,
+    get_transcription_from_api # (This line is only needed in video_routes.py)
+)
 
 router = APIRouter(prefix="/newspaper", tags=["Newspaper Analysis"])
 
