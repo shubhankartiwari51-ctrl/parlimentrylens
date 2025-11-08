@@ -21,4 +21,4 @@ COPY . /code/
 
 # Tell the container what command to run on startup
 # We use 0.0.0.0 (all IPs) and Render's $PORT variable
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "10000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "$PORT"]
