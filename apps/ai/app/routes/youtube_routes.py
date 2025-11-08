@@ -1,6 +1,8 @@
+# C:\Users\prabh\Downloads\ParliamentLens\apps\ai\app\routes\youtube_routes.py
+# (This is the UPDATED file)
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, HttpUrl
-from transformers import pipeline, AutoTokenizer # Added AutoTokenizer
 from youtube_transcript_api import (
     YouTubeTranscriptApi,
     TranscriptsDisabled,
@@ -14,73 +16,42 @@ import os
 import re
 import glob
 from urllib.error import HTTPError
-import math # Added math
+import math
+
+# --- FIX: Import models and helpers from the new utils.py file ---
+try:
+    from ..utils import (
+        sentiment_analyzer,
+        summarizer,
+        summarizer_tokenizer,
+        MODEL_MAX_LENGTH,
+        calculate_average_sentiment,
+        chunk_and_summarize,
+        get_topics_from_api  # <-- Import the new API function
+    )
+except ImportError:
+    from utils import (
+        sentiment_analyzer,
+        summarizer,
+        summarizer_tokenizer,
+        MODEL_MAX_LENGTH,
+        calculate_average_sentiment,
+        chunk_and_summarize,
+        get_topics_from_api  # <-- Import the new API function
+    )
 
 router = APIRouter(prefix="/youtube", tags=["YouTube Analysis"])
 
 class AnalyzeReq(BaseModel):
     url: HttpUrl
 
-# ----- Load models once (Stronger setup) -----
-try:
-    sentiment_analyzer = pipeline("sentiment-analysis")
-    SUMMARIZER_MODEL = "sshleifer/distilbart-cnn-6-6"
-    summarizer = pipeline("summarization", model=SUMMARIZER_MODEL)
-    topic_model = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
-    summarizer_tokenizer = AutoTokenizer.from_pretrained(SUMMARIZER_MODEL)
-    MODEL_MAX_LENGTH = summarizer.model.config.max_position_embeddings # 1024
-except Exception as e:
-    raise RuntimeError(f"Model loading failed: {e}")
+# --- REMOVED all model loading and helper functions ---
+# (Except for the ones specific to YouTube, which we keep)
 
 # ----- Cookies support -----
 COOKIES_PATH = os.environ.get("YT_COOKIES", os.path.join(os.getcwd(), "cookies.txt"))
 COOKIES_ARG = COOKIES_PATH if os.path.exists(COOKIES_PATH) else None
 print(f"Cookie file status: {'Loaded' if COOKIES_ARG else 'Not found'}")
-
-# --- NEW "Stronger Sentiment" Helper ---
-def _calculate_average_sentiment(sentiments: list) -> dict:
-    if not sentiments:
-        return {"label": "NEUTRAL", "score": 0.0}
-    total_score = 0
-    for sent in sentiments:
-        score = sent["score"]
-        if sent["label"] == "NEGATIVE":
-            score = -score
-        total_score += score
-    avg_score = total_score / len(sentiments)
-    final_label = "NEUTRAL"
-    if avg_score > 0.15:
-        final_label = "POSITIVE"
-    elif avg_score < -0.15:
-        final_label = "NEGATIVE"
-    return {"label": final_label, "score": abs(avg_score)}
-
-# --- NEW "Recursive Summarizer" Helper ---
-def _chunk_and_summarize(text_to_summarize: str, max_length: int, min_length: int) -> str:
-    """
-    Handles text of any length by chunking it before sending to the summarizer.
-    This is the core fix for the (4798 > 1024) error.
-    """
-    try:
-        tokens = summarizer_tokenizer.encode(text_to_summarize, add_special_tokens=False)
-        chunk_size = MODEL_MAX_LENGTH - 50 # Give 50 tokens of buffer
-        chunks = [
-            tokens[i : i + chunk_size]
-            for i in range(0, len(tokens), chunk_size)
-        ]
-        text_chunks = [
-            summarizer_tokenizer.decode(chunk, skip_special_tokens=True)
-            for chunk in chunks
-        ]
-        if not text_chunks:
-            return ""
-        summaries = summarizer(
-            text_chunks, max_length=max_length, min_length=min_length, do_sample=False
-        )
-        return " ".join([s["summary_text"] for s in summaries])
-    except Exception as e:
-        print(f"Error during chunking/summarizing: {e}")
-        return ""
 
 # ----- Transcript-Fetching Helpers (Unchanged) -----
 def _clean_text(t: str) -> str:
@@ -157,7 +128,7 @@ def _get_text_via_ytdlp(url: str) -> str:
             if any(tag in n for tag in ["en-us", "en-gb", "en"]): preferred = p
         vtt_path = preferred or vtts[0]
         try:
-            return _read_vT_file(vtt_path)
+            return _read_vtt_file(vtt_path) # <-- Corrected typo from your file
         except Exception:
             return ""
 
@@ -189,34 +160,30 @@ async def analyze_youtube(req: AnalyzeReq):
         
         # Stronger Sentiment (Averaging)
         content_length = len(content)
-        # Take up to 10 samples from across the whole video
+        step = max(1, content_length // 10)
         samples = [
             content[i : i + 512] # Sentiment model limit
-            for i in range(0, content_length, max(1, content_length // 10))
+            for i in range(0, content_length, step)
         ]
         sentiments = sentiment_analyzer(samples)
-        final_sentiment = _calculate_average_sentiment(sentiments)
+        final_sentiment = calculate_average_sentiment(sentiments)
 
         # Stronger Summary (Recursive)
-        first_pass_summary = _chunk_and_summarize(content, max_length=120, min_length=30)
+        first_pass_summary = chunk_and_summarize(content, max_length=120, min_length=30)
 
         if len(summarizer_tokenizer.encode(first_pass_summary)) > MODEL_MAX_LENGTH:
-            final_summary_text = _chunk_and_summarize(first_pass_summary, max_length=250, min_length=50)
+            final_summary_text = chunk_and_summarize(first_pass_summary, max_length=250, min_length=50)
         else:
             final_summary_text = first_pass_summary
             
-        # New Feature: Key Topics
+        # --- 3. FIX: Call the API for topics ---
         candidate_labels = [
             "Politics", "Law", "Economy", "Health", "Technology", 
             "Environment", "Education", "Sports", "Business", "International Relations"
         ]
-        topic_results = topic_model(final_summary_text, candidate_labels, multi_label=True)
-        key_topics = [
-            {"label": label, "score": score}
-            for label, score in zip(topic_results["labels"], topic_results["scores"])
-            if score > 0.5
-        ]
-        key_topics = sorted(key_topics, key=lambda x: x["score"], reverse=True)
+        # This one line REPLACES the old code that loaded the giant model
+        key_topics = get_topics_from_api(final_summary_text, candidate_labels)
+        # ----------------------------------------
 
         # Return the new, stronger response
         return {

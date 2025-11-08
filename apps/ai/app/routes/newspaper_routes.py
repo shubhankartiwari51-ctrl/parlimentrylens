@@ -1,28 +1,31 @@
+# C:\Users\prabh\Downloads\ParliamentLens\apps\ai\app\routes\newspaper_routes.py
+# (This is the UPDATED file)
+
 from fastapi import APIRouter, HTTPException, UploadFile, File
 import pytesseract
 from PIL import Image, ImageEnhance, ImageFilter # <-- Import more image tools
 import io
 
-# Import your helper functions from utils.py
+# --- FIX: Import models and helpers from the new utils.py file ---
 try:
     from ..utils import (
         sentiment_analyzer,
         summarizer,
-        topic_model,
         summarizer_tokenizer,
         MODEL_MAX_LENGTH,
         calculate_average_sentiment,
-        chunk_and_summarize
+        chunk_and_summarize,
+        get_topics_from_api  # <-- Import the new API function
     )
 except ImportError:
      from utils import (
         sentiment_analyzer,
         summarizer,
-        topic_model,
         summarizer_tokenizer,
         MODEL_MAX_LENGTH,
         calculate_average_sentiment,
-        chunk_and_summarize
+        chunk_and_summarize,
+        get_topics_from_api  # <-- Import the new API function
     )
 
 router = APIRouter(prefix="/newspaper", tags=["Newspaper Analysis"])
@@ -38,22 +41,12 @@ async def analyze_newspaper(file: UploadFile = File(...)):
         image_data = await file.read()
         image = Image.open(io.BytesIO(image_data))
 
-        # --- 2. NEW "STRONG" IMAGE CLEANING ---
-        # Convert to grayscale
+        # --- 2. "STRONG" IMAGE CLEANING (Unchanged) ---
         img_gray = image.convert('L')
-        
-        # Increase contrast
         enhancer = ImageEnhance.Contrast(img_gray)
-        img_enhanced = enhancer.enhance(2.0) # 2.0 = 2x contrast
-        
-        # Apply a slight sharpen filter
+        img_enhanced = enhancer.enhance(2.0)
         img_final = img_enhanced.filter(ImageFilter.SHARPEN)
         
-        # You can uncomment this line to save the cleaned image
-        # and see what Tesseract is "seeing"
-        # img_final.save("cleaned_image.png") 
-        # ----------------------------------------
-
         # 3. Use Tesseract to "scan" the CLEANED image
         extracted_text = pytesseract.image_to_string(img_final, lang='eng+hin')
 
@@ -79,19 +72,15 @@ async def analyze_newspaper(file: UploadFile = File(...)):
         else:
             final_summary_text = first_pass_summary
 
-        # Key Topics
+        # --- 3. FIX: Call the API for topics ---
         candidate_labels = [
             "Politics", "Law", "Economy", "Health", "Technology", 
             "Environment", "Education", "Sports", "Business", "International Relations"
         ]
-        topic_results = topic_model(final_summary_text, candidate_labels, multi_label=True)
-        key_topics = [
-            {"label": label, "score": score}
-            for label, score in zip(topic_results["labels"], topic_results["scores"])
-            if score > 0.5
-        ]
-        key_topics = sorted(key_topics, key=lambda x: x["score"], reverse=True)
-
+        # This one line REPLACES the old code that loaded the giant model
+        key_topics = get_topics_from_api(final_summary_text, candidate_labels)
+        # ----------------------------------------
+        
         return {
             "sentiment": final_sentiment,
             "summary": final_summary_text,
