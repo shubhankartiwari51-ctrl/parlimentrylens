@@ -148,7 +148,7 @@ export default function AnalyzeText() {
     setError(null);
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_AI_BASE}/text/analyze`, {
+      const res = await fetch(`${import.meta.env.VITE_AI_BASE}/api/ai/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
