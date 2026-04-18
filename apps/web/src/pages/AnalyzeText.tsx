@@ -148,11 +148,11 @@ export default function AnalyzeText() {
     setError(null);
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_AI_BASE}/api/ai/analyze`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
+  const res = await fetch(`${import.meta.env.VITE_AI_BASE}/analyze`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
       if (!res.ok) {
         let detail = `Server Error: ${res.status}`;
         try { const data = await res.json(); detail = data.detail || detail; } catch {}
