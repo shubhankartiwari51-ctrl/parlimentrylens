@@ -1,15 +1,23 @@
 import express, { Request, Response } from "express";
-import axios from "axios";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const router = express.Router();
-const AI_BASE = process.env.AI_BASE || "http://ai:8001";
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY as string);
 
 router.post("/analyze", async (req: Request, res: Response) => {
   try {
     const { text } = req.body;
-    const response = await axios.post(`${AI_BASE}/analyze`, { text });
-    res.status(200).json({ success: true, data: response.data });
+
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash"
+    });
+
+    const result = await model.generateContent(text);
+    const response = await result.response;
+
+    res.json({ success: true, data: response.text() });
   } catch (error: any) {
+    console.log(error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
