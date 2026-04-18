@@ -4,8 +4,7 @@ import debateRoutes from "./routes/debateRoutes";
 import mediaRoutes from "./routes/mediaRoutes";
 import aiRoutes from "./routes/aiRoutes";
 const app = express();
-
-// middlewaresapp.use(cors({
+app.use(cors({
   origin: "*",
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
