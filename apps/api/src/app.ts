@@ -5,8 +5,13 @@ import mediaRoutes from "./routes/mediaRoutes";
 import aiRoutes from "./routes/aiRoutes";
 const app = express();
 
-// middlewares
-app.use(cors());
+// middlewaresapp.use(cors({
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
+
+app.options("*", cors());
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 
